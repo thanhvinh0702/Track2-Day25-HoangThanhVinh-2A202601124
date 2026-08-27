@@ -52,6 +52,25 @@ def discount_stack(
     return cache_mult * batch_mult
 
 
+def cache_is_worth_it(
+    avg_cache_reads: float,
+    write_cost_per_m: float,
+    read_discount: float = 0.10,
+) -> bool:
+    """Return whether repeated reads repay the one-time cache write cost.
+
+    Costs are expressed as a fraction of one uncached input-million bill: the
+    first read is the write/uncached baseline, while every later read saves
+    ``1 - read_discount``.  This deliberately small model is useful for a
+    routing guard before enabling prompt caching.
+    """
+    reads = max(0.0, float(avg_cache_reads))
+    write = max(0.0, float(write_cost_per_m))
+    discount = max(0.0, min(1.0, float(read_discount)))
+    savings_from_repeats = max(0.0, reads - 1.0) * (1.0 - discount)
+    return savings_from_repeats > write
+
+
 def break_even_utilization(discount_frac: float) -> float:
     """Utilization at which a commitment pays off ~= 1 - discount.
 

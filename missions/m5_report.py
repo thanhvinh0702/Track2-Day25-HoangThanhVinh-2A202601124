@@ -50,9 +50,26 @@ def run(verbose: bool = True) -> dict:
         "wh_per_query": wh,
         "carbon_g": sustainability.carbon_g(wh, "us-east-1"),
         "best_region": min(sustainability.REGION_CARBON, key=sustainability.REGION_CARBON.get),
+        "reasoning_fraction": r2["reasoning_fraction"],
+        "reasoning_cost": r2["reasoning_cost"],
+        "reasoning_cost_pct": r2["reasoning_cost_pct"],
+        "reasoning_energy_multiplier": r2["reasoning_wh"] / r2["non_reasoning_wh"] if r2["non_reasoning_wh"] else 0.0,
+        "reasoning_cap_cost_savings": r2["reasoning_cap_cost_savings"],
+        "reasoning_cap_wh_savings": r2["reasoning_cap_wh_savings"],
+        "cache_enabled": r2["cache_enabled"],
+        "avg_cache_reads": r2["avg_cache_reads"],
     }
 
-    md = report.build_report(baseline, optimized, levers, sustainability=sust)
+    md = report.build_report(
+        baseline, optimized, levers, sustainability=sust,
+        baseline_per_m=r2["baseline_per_m"], optimized_per_m=r2["optimized_per_m"],
+        analysis=[
+            "Ưu tiên cascade + prompt caching + batch vì đây là đòn bẩy inference lớn nhất theo $/1M-token.",
+            "Tắt GPU idle và right-size các GPU có GPU-Util cao nhưng MFU thấp; GPU-Util chỉ phản ánh thời gian bận.",
+            "Dùng spot cho workload interruptible có checkpoint và reserved cho duty cycle cao; theo dõi tag coverage trước chargeback.",
+            "Giới hạn reasoning ở 10% traffic khi chất lượng cho phép; chuyển job gián đoạn sang vùng có carbon thấp.",
+        ],
+    )
     out_md = os.path.join(ROOT, "outputs", "report.md")
     os.makedirs(os.path.dirname(out_md), exist_ok=True)
     with open(out_md, "w") as f:
